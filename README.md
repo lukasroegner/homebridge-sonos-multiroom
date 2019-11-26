@@ -43,6 +43,7 @@ npm install homebridge-sonos-multiroom -g
     "platforms": [
         {
             "platform": "SonosMultiroomPlatform",
+            "discoveryTimeout": 5000,
             "zones": [
                 {
                     "name": "Living Room",
@@ -67,21 +68,71 @@ npm install homebridge-sonos-multiroom -g
                         "Bathroom"
                     ]
                 }
-            ]
+            ],
+            "isApiEnabled": false,
+            "apiPort": 40809,
+            "apiToken": "<YOUR-TOKEN>"
         }
     ]
 }
 ```
 
+**discoveryTimeout** (optional): Time span in milliseconds for which the plugin searches for Sonos devices. Defaults to `5000`.
+
 **zones**: An array of all zone (e.g. rooms) that you want the plugin to expose to HomeKit.
 
 **name**: The name of the zone. Must match the name in the Sonos app.
 
-**isNightModeEnabled** (optional): If set to true, a switch is exposed for the night mode. (only for Playbar/Playbase)
+**isNightModeEnabled** (optional): If set to true, a switch is exposed for the night mode. Defaults to `false`. (only for Playbar/Playbase)
 
-**isSpeechEnhancementEnabled** (optional): If set to true, a switch is exposed for the speech enhancement. (only for Playbar/Playbase)
+**isSpeechEnhancementEnabled** (optional): If set to true, a switch is exposed for the speech enhancement. Defaults to `false`. (only for Playbar/Playbase)
 
 **priorities** (optional): If provided, this list of zone names defines the priority when searching for a music/TV stream to play when the accessories is switched to ON.
+
+**isApiEnabled** (optional): Enables an HTTP API for controlling Sonos zones. Defaults to `false`. See **API** for more information.
+
+**apiPort** (optional): The port that the API (if enabled) runs on. Defaults to `40809`, please change this setting of the port is already in use.
+
+**apiToken** (optional): The token that has to be included in each request of the API. Is required if the API is enabled and has no default value.
+
+## API
+
+This plugin also provides an HTTP API to control some features of the Sonos system. It has been created so that you can further automate the system with HomeKit shortcuts. Starting with iOS 13, you can use shortcuts for HomeKit automation. Those automations that are executed on the HomeKit coordinator (i.e. iPad, AppleTV or HomePod) also support HTTP requests, which means you can automate your Sonos system without annoying switches and buttons exposed in HomeKit.
+
+If the API is enabled, it can be reached at the specified port on the host of this plugin. 
+```
+http://<YOUR-HOST-IP-ADDRESS>:<apiPort>
+```
+
+The token has to be specified as value of the `Authorization` header on each request:
+```
+Authorization: <YOUR-TOKEN>
+```
+
+### API - Get values of Sonos zone
+
+Use the `zones/<ZONE-NAME>` endpoint to retrieve values of a Sonos zone. The HTTP method has to be `GET`:
+```
+http://<YOUR-HOST-IP-ADDRESS>:<apiPort>/zones/<ZONE-NAME>/<PROPERTY-NAME>
+```
+
+The response is a plain text response (easier to handle in HomeKit shortcuts), the following property names are supported:
+
+* **let-state** The LED state of the master device of the zone (possible values: `true` if ON, `false` if OFF)
+* **volume** The current volume of the zone as integer value (range: `0-100`)
+
+
+### API - Set values of Sonos zone
+
+Use the `zones/<ZONE-NAME>` endpoint to set values of a Sonos zone. The HTTP method has to be `POST`:
+```
+http://<YOUR-HOST-IP-ADDRESS>:<apiPort>/zones/<ZONE-NAME>/<PROPERTY-NAME>
+```
+
+The body of the request has to be plain text containing the new value. The following property names are supported:
+
+* **let-state** The LED state of all devices of the zone (possible values: `true` to switch on ON, `false` to switch OFF)
+* **volume** The current volume of the zone as integer value (range: `0-100`)
 
 ## Tips
 
@@ -89,3 +140,5 @@ npm install homebridge-sonos-multiroom -g
 * You can add conditions to the HomeKit automations to prevent Sonos devices from playing at night (e.g. only switch ON between 6am and 10pm)
 * The automatic switching to the TV input (Playbar/Playbase) works well with this plugin
 * If your HomeKit motion sensors do not support an occupancy mode (i.e. they only show "motion detected" for some seconds), you can use delay switches (e.g. **homebridge-delay-switch**) with a timeout of some minutes to switch the Sonos accessories ON and OFF.
+* Use HomeKit shortcuts to set a default volume for each speaker in the early morning.
+* Use HomeKit shortcuts to disable LEDs at night.

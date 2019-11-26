@@ -2,6 +2,7 @@
 const { Listener, DeviceDiscovery } = require('sonos');
 
 const SonosZone = require('./sonos-zone');
+const SonosApi = require('./sonos-api');
 
 /**
  * Initializes a new platform instance for the Sonos multiroom plugin.
@@ -32,10 +33,16 @@ function SonosMultiroomPlatform(log, config, api) {
     platform.config = config;
     platform.zones = [];
     platform.accessories = [];
+    platform.sonos = [];
 
     // Initializes the configuration
     platform.config.zones = platform.config.zones || [];
+    apiPort
     platform.config.discoveryTimeout = platform.config.discoveryTimeout || 5000;
+    platform.config.zones = platform.config.zones || [];
+    platform.config.isApiEnabled = platform.config.isApiEnabled || false;
+    platform.config.apiPort = platform.config.apiPort || 40809;
+    platform.config.apiToken = platform.config.apiToken || null;
 
     // Checks whether the API object is available
     if (!api) {
@@ -77,6 +84,13 @@ function SonosMultiroomPlatform(log, config, api) {
                 const host = hosts[i];
                 const info = hostsDictionary[host];
 
+                // Gets the zone attributes of the device
+                promises.push(info.sonos.getZoneAttrs().then(function(zoneAttrs) {
+                    info.zoneName = zoneAttrs.CurrentZoneName;
+                }, function() {
+                    platform.log('Error while getting zone attributes of ' + host + '.');
+                }));
+
                 // Gets the zone group attributes of the zone
                 promises.push(info.sonos.zoneGroupTopologyService().GetZoneGroupAttributes().then(function(zoneGroupAttrs) {
                     if (zoneGroupAttrs.CurrentZoneGroupID !== '') {
@@ -85,84 +99,71 @@ function SonosMultiroomPlatform(log, config, api) {
                 }, function() {
                     platform.log('Error while getting zone group attributes of ' + host + '.');
                 }));
+
+                // Gets the device description
+                promises.push(info.sonos.deviceDescription().then(function(deviceDescription) {
+                    info.manufacturer = deviceDescription.device.manufacturer;
+                    info.modelNumber = deviceDescription.device.modelNumber;
+                    info.modelName = deviceDescription.device.modelName;
+                    info.serialNumber = deviceDescription.device.serialNum;
+                    info.serialNumber = deviceDescription.device.serialNum;
+                    info.softwareVersion = deviceDescription.device.softwareVersion;
+                    info.hardwareVersion = deviceDescription.device.hardwareVersion;
+
+                    // Gets the possible inputs
+                    for (let j = 0; j < deviceDescription.device.serviceList.length; j++) {
+                        const service = deviceDescription.device.serviceList[j];
+                        if (service.serviceId.split(':')[3] === 'AudioIn') {
+                            info.audioIn = true;
+                        }
+                        if (service.serviceId.split(':')[3] === 'HTControl') {
+                            info.htControl = true;
+                        }
+                    }
+                }, function() {
+                    platform.log('Error while getting device description of ' + host + '.');
+                }));
             }
 
-            // Gets the master hosts information
+            // Creates the zone objects
             Promise.all(promises).then(function() {
-                promises = [];
                 for (let i = 0; i < masterHosts.length; i++) {
                     const host = masterHosts[i];
                     const info = hostsDictionary[host];
 
-                    // Gets the zone attributes of the device
-                    promises.push(info.sonos.getZoneAttrs().then(function(zoneAttrs) {
-                        hostsDictionary[host].zoneName = zoneAttrs.CurrentZoneName;
-                    }, function() {
-                        platform.log('Error while getting zone attributes of ' + host + '.');
-                    }));
+                    // Gets the corresponding zone configuration
+                    const config = platform.config.zones.find(function(z) { return z.name === info.zoneName; });
+                    if (!config) {
+                        platform.log('No configuration provided for zone with name ' + info.zoneName + '.');
+                        continue;
+                    }
 
-                    // Gets the device description
-                    promises.push(info.sonos.deviceDescription().then(function(deviceDescription) {
-                        platform.log(deviceDescription);
-                        hostsDictionary[host].manufacturer = deviceDescription.device.manufacturer;
-                        hostsDictionary[host].modelNumber = deviceDescription.device.modelNumber;
-                        hostsDictionary[host].modelName = deviceDescription.device.modelName;
-                        hostsDictionary[host].serialNumber = deviceDescription.device.serialNum;
-                        hostsDictionary[host].serialNumber = deviceDescription.device.serialNum;
-                        hostsDictionary[host].softwareVersion = deviceDescription.device.softwareVersion;
-                        hostsDictionary[host].hardwareVersion = deviceDescription.device.hardwareVersion;
+                    // Gets the slave hosts
+                    info.slaves = hosts.filter(function(h) { return hostsDictionary[h].zoneName === info.zoneName && h !== host; });
 
-                        // Gets the possible inputs
-                        for (let j = 0; j < deviceDescription.device.serviceList.length; j++) {
-                            const service = deviceDescription.device.serviceList[j];
-                            if (service.serviceId.split(':')[3] === 'AudioIn') {
-                                hostsDictionary[host].audioIn = true;
-                            }
-                            if (service.serviceId.split(':')[3] === 'HTControl') {
-                                hostsDictionary[host].htControl = true;
-                            }
-                          }
-                    }, function() {
-                        platform.log('Error while getting device description of ' + host + '.');
-                    }));
+                    // Creates the zone instance and adds it to the list of all zones
+                    platform.log('Create zone with name ' + info.zoneName + '.');
+                    platform.zones.push(new SonosZone(platform, info, config));
                 }
 
-                // Waits for all promises to resolve
-                Promise.all(promises).then(function() {
-                    
-                    // Creates the zone objects
-                    for (let i = 0; i < masterHosts.length; i++) {
-                        const host = masterHosts[i];
-                        const info = hostsDictionary[host];
-
-                        // Gets the corresponding zone configuration
-                        const config = platform.config.zones.find(function(z) { return z.name === info.zoneName; });
-                        if (!config) {
-                            platform.log('No configuration provided for zone with name ' + info.zoneName + '.');
-                            continue;
-                        }
-
-                        // Creates the zone instance and adds it to the list of all zones
-                        platform.log('Create zone with name ' + info.zoneName + '.');
-                        platform.zones.push(new SonosZone(platform, info, config));
-                    }
-
-                    // Removes the accessories that are not bound to a zone
-                    let unusedAccessories = platform.accessories.filter(function(a) { return !platform.zones.some(function(z) { return z.name === a.context.name; }); });
-                    for (let i = 0; i < unusedAccessories.length; i++) {
-                        const unusedAccessory = unusedAccessories[i];
-                        platform.log('Removing accessory with name ' + unusedAccessory.context.name + ' and kind ' + unusedAccessory.context.kind + '.');
-                        platform.accessories.splice(platform.accessories.indexOf(unusedAccessory), 1);
-                    }
-                    platform.api.unregisterPlatformAccessories(platform.pluginName, platform.platformName, unusedAccessories);
-                    platform.log('Initialization completed.');
-                }, function() {
-                    platform.log('Error while initializing plugin.');
-                });
+                // Removes the accessories that are not bound to a zone
+                let unusedAccessories = platform.accessories.filter(function(a) { return !platform.zones.some(function(z) { return z.name === a.context.name; }); });
+                for (let i = 0; i < unusedAccessories.length; i++) {
+                    const unusedAccessory = unusedAccessories[i];
+                    platform.log('Removing accessory with name ' + unusedAccessory.context.name + ' and kind ' + unusedAccessory.context.kind + '.');
+                    platform.accessories.splice(platform.accessories.indexOf(unusedAccessory), 1);
+                }
+                platform.api.unregisterPlatformAccessories(platform.pluginName, platform.platformName, unusedAccessories);
+                platform.log('Initialization completed.');
             }, function() {
                 platform.log('Error while initializing plugin.');
             });
         });
+
+        // Starts the API if requested
+        if (platform.config.isApiEnabled) {
+            platform.sonosApi = new SonosApi(platform);
+        }
     });
 }
 

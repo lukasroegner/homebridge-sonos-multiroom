@@ -9,9 +9,10 @@ function SonosZone(platform, info, config) {
     const zone = this;
     const { UUIDGen, Accessory, Characteristic, Service } = platform;
 
-    // Sets the name, sonos device and platform
+    // Sets the name, sonos device, slave devices and platform
     zone.name = name;
     zone.sonos = info.sonos;
+    zone.sonosSlaves = info.slaves.map(function(s) { return s.sonos; });
     zone.platform = platform;
 
     // Gets all accessories from the platform that match the zone name

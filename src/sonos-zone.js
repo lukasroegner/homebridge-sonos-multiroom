@@ -1,30 +1,21 @@
 
-const { Sonos } = require('sonos');
-
 /**
  * Represents a Sonos zone.
  * @param platform The SonosMultiroomPlatform instance.
- * @param name The zone name.
- * @param hosts The list of hosts (IP addresses).
+ * @param info The information of the zone.
  * @param config The zone configuration.
  */
-function SonosZone(platform, name, hosts, config) {
+function SonosZone(platform, info, config) {
     const zone = this;
     const { UUIDGen, Accessory, Characteristic, Service } = platform;
 
-    // Sets the name, hosts and platform
+    // Sets the name, sonos device and platform
     zone.name = name;
-    zone.hosts = hosts;
+    zone.sonos = info.sonos;
     zone.platform = platform;
 
-    // Initializes the current track
-    zone.currentTrack = null;
-
-    // Initializes the Sonos device
-    zone.sonos = new Sonos(zone.hosts[0]);
-
     // Gets all accessories from the platform that match the zone name
-    let unusedDeviceAccessories = platform.accessories.filter(function(a) { return a.context.name === config.name; });
+    let unusedDeviceAccessories = platform.accessories.filter(function(a) { return a.context.name === zone.name; });
     let newDeviceAccessories = [];
     let deviceAccessories = [];
 
@@ -33,13 +24,29 @@ function SonosZone(platform, name, hosts, config) {
     if (outletAccessory) {
         unusedDeviceAccessories.splice(unusedDeviceAccessories.indexOf(outletAccessory), 1);
     } else {
-        platform.log('Adding new accessory with zone name ' + config.name + ' and kind OutletAccessory.');
-        outletAccessory = new Accessory(config.name, UUIDGen.generate(config.name + 'OutletAccessory'));
-        outletAccessory.context.name = config.name;
+        platform.log('Adding new accessory with zone name ' + zone.name + ' and kind OutletAccessory.');
+        outletAccessory = new Accessory(zone.name, UUIDGen.generate(zone.name + 'OutletAccessory'));
+        outletAccessory.context.name = zone.name;
         outletAccessory.context.kind = 'OutletAccessory';
         newDeviceAccessories.push(outletAccessory);
     }
     deviceAccessories.push(outletAccessory);
+
+    // Gets the switch accessory
+    let switchAccessory = null;
+    if (info.htControl && (config.isNightModeEnabled || config.isSpeechEnhancementEnabled)) {
+        switchAccessory = unusedDeviceAccessories.find(function(a) { return a.context.kind === 'SwitchAccessory'; });
+        if (switchAccessory) {
+            unusedDeviceAccessories.splice(unusedDeviceAccessories.indexOf(switchAccessory), 1);
+        } else {
+            platform.log('Adding new accessory with zone name ' + zone.name + ' and kind SwitchAccessory.');
+            switchAccessory = new Accessory(zone.name + ' Settings', UUIDGen.generate(zone.name + 'SwitchAccessory'));
+            outletAccessory.context.name = zone.name;
+            switchAccessory.context.kind = 'SwitchAccessory';
+            newDeviceAccessories.push(switchAccessory);
+        }
+        deviceAccessories.push(switchAccessory);
+    }
 
     // Registers the newly created accessories
     platform.api.registerPlatformAccessories(platform.pluginName, platform.platformName, newDeviceAccessories);
@@ -60,9 +67,11 @@ function SonosZone(platform, name, hosts, config) {
             accessoryInformationService = deviceAccessory.addService(Service.AccessoryInformation);
         }
         accessoryInformationService
-            .setCharacteristic(Characteristic.Manufacturer, 'Sonos')
-            .setCharacteristic(Characteristic.Model, 'TODO')
-            .setCharacteristic(Characteristic.SerialNumber, config.name);
+            .setCharacteristic(Characteristic.Manufacturer, info.manufacturer)
+            .setCharacteristic(Characteristic.Model, info.modelName)
+            .setCharacteristic(Characteristic.SerialNumber, info.serialNumber)
+            .setCharacteristic(Characteristic.FirmwareRevision, info.softwareVersion)
+            .setCharacteristic(Characteristic.HardwareRevision, info.hardwareVersion);
     }
 
     // Updates the outlet
@@ -74,6 +83,30 @@ function SonosZone(platform, name, hosts, config) {
 
     // Stores the outlet service
     zone.outletService = outletService;
+
+    // Updates the night mode switch
+    let nightModeSwitchService = null;
+    if (switchAccessory && config.isNightModeEnabled) {
+        nightModeSwitchService = switchAccessory.getServiceByUUIDAndSubType(Service.Switch, 'NightMode');
+        if (!nightModeSwitchService) {
+            nightModeSwitchService = switchAccessory.addService(Service.Switch, 'Night Mode', 'NightMode');
+        }
+
+        // Stores the service
+        device.nightModeSwitchService = nightModeSwitchService;
+    }
+
+    // Updates the speech enhancement switch
+    let speechEnhancementSwitchService = null;
+    if (switchAccessory && config.isSpeechEnhancementEnabled) {
+        speechEnhancementSwitchService = switchAccessory.getServiceByUUIDAndSubType(Service.Switch, 'SpeechEnhancement');
+        if (!speechEnhancementSwitchService) {
+            speechEnhancementSwitchService = switchAccessory.addService(Service.Switch, 'Speech Enhancement', 'SpeechEnhancement');
+        }
+
+        // Stores the service
+        device.speechEnhancementSwitchService = speechEnhancementSwitchService;
+    }
 
     // Subscribes for changes of the on characteristic
     outletService.getCharacteristic(Characteristic.On).on('set', function (value, callback) {
@@ -100,20 +133,48 @@ function SonosZone(platform, name, hosts, config) {
                         }
 
                         // Joins the group
-                        zone.sonos.joinGroup(priorityZone.name);
+                        zone.sonos.joinGroup(priorityZone.name).then(function () {}, function () {
+                            zone.platform.log(zone.name + ' - Error while joining group ' + priorityZone.name + '.');
+                        });
                     }
                 } else {
 
                     // Tries to just play
-                    zone.sonos.play();
+                    zone.sonos.play().then(function () {}, function () {
+                        zone.platform.log(zone.name + ' - Error while trying to play.');
+                    });
                 }
             }
         } else {
             zone.platform.log(zone.name + ' - Set outlet state: OFF');
-            zone.sonos.leaveGroup();
+            zone.sonos.leaveGroup().then(function () {}, function () {
+                zone.platform.log(zone.name + ' - Error while leaving group.');
+            });
         }
         callback(null);
     });
+
+    // Subscribes for changes of the night mode
+    if (nightModeSwitchService) {
+        nightModeSwitchService.getCharacteristic(Characteristic.On).on('set', function (value, callback) {
+            zone.platform.log(zone.name + ' - Set night mode: ' + (value ? 'ON' : 'OFF'));
+            zone.sonos.renderingControlService()._request('SetEQ', { InstanceID: 0, EQType: 'NightMode', DesiredValue: value ? '1' : '0' }).then(function () {}, function () {
+                zone.platform.log(zone.name + ' - Error switching night mode to ' + (value ? 'ON' : 'OFF') + '.');
+            });
+            callback(null);
+        });
+    }
+
+    // Subscribes for changes of the speech enhancement
+    if (speechEnhancementSwitchService) {
+        speechEnhancementSwitchService.getCharacteristic(Characteristic.On).on('set', function (value, callback) {
+            zone.platform.log(zone.name + ' - Set speech enhancement: ' + (value ? 'ON' : 'OFF'));
+            zone.sonos.renderingControlService()._request('SetEQ', { InstanceID: 0, EQType: 'DialogLevel', DesiredValue: value ? '1' : '0' }).then(function () {}, function () {
+                zone.platform.log(zone.name + ' - Error switching speech enhancement to ' + (value ? 'ON' : 'OFF') + '.');
+            });
+            callback(null);
+        });
+    }
 
     // Subscribes for changes in the play state
     zone.sonos.on('PlayState', function (playState) {
@@ -125,6 +186,22 @@ function SonosZone(platform, name, hosts, config) {
     zone.sonos.on('PlaybackStopped', function () {
         zone.platform.log(zone.name + ' - Updating outlet state: OFF');
         zone.outletService.updateCharacteristic(Characteristic.On, false);
+    });
+
+    // Subscribes for changes in the rendering control
+    zone.sonos.on('RenderingControl', function (eventData) {
+
+        // Updates the night mode
+        if (nightModeSwitchService && eventData.NightMode) {
+            zone.platform.log(zone.name + ' - Updating night mode: ' + (eventData.NightMode[0].val === '1' ? 'ON' : 'OFF'));
+            nightModeSwitchService.updateCharacteristic(Characteristic.On, eventData.NightMode[0].val === '1');
+        }
+
+        // Updates the speed enhancement
+        if (speechEnhancementSwitchService && eventData.DialogLevel) {
+            zone.platform.log(zone.name + ' - Updating speech enhancement: ' + (eventData.DialogLevel[0].val === '1' ? 'ON' : 'OFF'));
+            speechEnhancementSwitchService.updateCharacteristic(Characteristic.On, eventData.DialogLevel[0].val === '1');
+        }
     });
 }
 

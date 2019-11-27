@@ -225,7 +225,7 @@ SonosApi.prototype.handlePostZone = function (endpoint, body, response) {
         switch (propertyName) {
             case 'led-state':
                 const devices = api.platform.devices.filter(function(d) { return d.zoneName === endpoint.zoneName; });
-                for (let i = 0; j < devices; i++) {
+                for (let i = 0; i < devices; i++) {
                     const device = devices[i];
                     promises.push(device.sonos.setLEDState(zonePropertyValue === true ? 'On' : 'Off'));
                 }

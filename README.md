@@ -164,5 +164,5 @@ The following property names are supported:
 * You can add conditions to the HomeKit automations to prevent Sonos devices from playing at night (e.g. only switch ON between 6am and 10pm)
 * The automatic switching to the TV input (Playbar/Playbase) works well with this plugin
 * If your HomeKit motion sensors do not support an occupancy mode (i.e. they only show "motion detected" for some seconds), you can use delay switches (e.g. **homebridge-delay-switch**) with a timeout of some minutes to switch the Sonos accessories ON and OFF.
-* Use HomeKit shortcuts to set a default volume for each speaker in the early morning.
+* Use HomeKit shortcuts to set a default volume for each zone in the early morning.
 * Use HomeKit shortcuts to disable LEDs at night.

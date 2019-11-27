@@ -31,15 +31,13 @@ function SonosMultiroomPlatform(log, config, api) {
     // Defines the variables that are used throughout the platform
     platform.log = log;
     platform.config = config;
-    platform.zones = [];
     platform.accessories = [];
-    platform.sonos = [];
+    platform.devices = [];
+    platform.zones = [];
 
     // Initializes the configuration
     platform.config.zones = platform.config.zones || [];
-    apiPort
     platform.config.discoveryTimeout = platform.config.discoveryTimeout || 5000;
-    platform.config.zones = platform.config.zones || [];
     platform.config.isApiEnabled = platform.config.isApiEnabled || false;
     platform.config.apiPort = platform.config.apiPort || 40809;
     platform.config.apiToken = platform.config.apiToken || null;
@@ -65,85 +63,74 @@ function SonosMultiroomPlatform(log, config, api) {
         
         // Discovers the Sonos devices
         const discovery = DeviceDiscovery({ timeout: platform.config.discoveryTimeout });
-        const hosts = [];
-        const hostsDictionary = {};
-        discovery.on('DeviceAvailable', (sonos, modelNumber) => {
-            hosts.push(sonos.host);
-            hostsDictionary[sonos.host] = {
-                sonos: sonos,
-                modelNumber: modelNumber
-            };
+        discovery.on('DeviceAvailable', function (sonos) {
+            platform.log('Device discovered: ' + sonos.host);
+            platform.devices.push({
+                sonos: sonos
+            });
         })
         discovery.once('timeout', function () {
-            platform.log('Discovery completed, ' + hosts.length + ' device(s) found.');
+            platform.log('Discovery completed, ' + platform.devices.length + ' device(s) found.');
 
-            // Gets the master hosts
+            // Gets the device information
             let promises = [];
-            const masterHosts = [];
-            for (let i = 0; i < hosts.length; i++) {
-                const host = hosts[i];
-                const info = hostsDictionary[host];
+            for (let i = 0; i < platform.devices.length; i++) {
+                const device = platform.devices[i];
 
                 // Gets the zone attributes of the device
-                promises.push(info.sonos.getZoneAttrs().then(function(zoneAttrs) {
-                    info.zoneName = zoneAttrs.CurrentZoneName;
+                promises.push(device.sonos.getZoneAttrs().then(function(zoneAttrs) {
+                    device.zoneName = zoneAttrs.CurrentZoneName;
                 }, function() {
-                    platform.log('Error while getting zone attributes of ' + host + '.');
+                    platform.log('Error while getting zone attributes of ' + device.sonos.host + '.');
                 }));
 
                 // Gets the zone group attributes of the zone
-                promises.push(info.sonos.zoneGroupTopologyService().GetZoneGroupAttributes().then(function(zoneGroupAttrs) {
-                    if (zoneGroupAttrs.CurrentZoneGroupID !== '') {
-                        masterHosts.push(host);
-                    }
+                promises.push(device.sonos.zoneGroupTopologyService().GetZoneGroupAttributes().then(function(zoneGroupAttrs) {
+                    device.isZoneMaster = zoneGroupAttrs.CurrentZoneGroupID !== '';
                 }, function() {
-                    platform.log('Error while getting zone group attributes of ' + host + '.');
+                    platform.log('Error while getting zone group attributes of ' + device.sonos.host + '.');
                 }));
 
                 // Gets the device description
-                promises.push(info.sonos.deviceDescription().then(function(deviceDescription) {
-                    info.manufacturer = deviceDescription.device.manufacturer;
-                    info.modelNumber = deviceDescription.device.modelNumber;
-                    info.modelName = deviceDescription.device.modelName;
-                    info.serialNumber = deviceDescription.device.serialNum;
-                    info.serialNumber = deviceDescription.device.serialNum;
-                    info.softwareVersion = deviceDescription.device.softwareVersion;
-                    info.hardwareVersion = deviceDescription.device.hardwareVersion;
+                promises.push(device.sonos.deviceDescription().then(function(deviceDescription) {
+                    device.manufacturer = deviceDescription.manufacturer;
+                    device.modelNumber = deviceDescription.modelNumber;
+                    device.modelName = deviceDescription.modelName;
+                    device.serialNumber = deviceDescription.serialNum;
+                    device.softwareVersion = deviceDescription.softwareVersion;
+                    device.hardwareVersion = deviceDescription.hardwareVersion;
 
                     // Gets the possible inputs
-                    for (let j = 0; j < deviceDescription.device.serviceList.length; j++) {
-                        const service = deviceDescription.device.serviceList[j];
+                    for (let j = 0; j < deviceDescription.serviceList.service.length; j++) {
+                        const service = deviceDescription.serviceList.service[j];
                         if (service.serviceId.split(':')[3] === 'AudioIn') {
-                            info.audioIn = true;
+                            device.audioIn = true;
                         }
                         if (service.serviceId.split(':')[3] === 'HTControl') {
-                            info.htControl = true;
+                            device.htControl = true;
                         }
                     }
                 }, function() {
-                    platform.log('Error while getting device description of ' + host + '.');
+                    platform.log('Error while getting device description of ' + device.sonos.host + '.');
                 }));
             }
 
             // Creates the zone objects
             Promise.all(promises).then(function() {
-                for (let i = 0; i < masterHosts.length; i++) {
-                    const host = masterHosts[i];
-                    const info = hostsDictionary[host];
+                const zoneMasterDevices = platform.devices.filter(function(d) { return d.isZoneMaster; });
+                for (let i = 0; i < zoneMasterDevices.length; i++) {
+                    const zoneMasterDevice = zoneMasterDevices[i];
 
                     // Gets the corresponding zone configuration
-                    const config = platform.config.zones.find(function(z) { return z.name === info.zoneName; });
+                    const config = platform.config.zones.find(function(z) { return z.name === zoneMasterDevice.zoneName; });
                     if (!config) {
                         platform.log('No configuration provided for zone with name ' + info.zoneName + '.');
                         continue;
                     }
 
-                    // Gets the slave hosts
-                    info.slaves = hosts.filter(function(h) { return hostsDictionary[h].zoneName === info.zoneName && h !== host; });
-
                     // Creates the zone instance and adds it to the list of all zones
-                    platform.log('Create zone with name ' + info.zoneName + '.');
-                    platform.zones.push(new SonosZone(platform, info, config));
+                    platform.log('Create zone with name ' + zoneMasterDevice.zoneName + '.');
+                    platform.zones.push(new SonosZone(platform, zoneMasterDevice, config));
                 }
 
                 // Removes the accessories that are not bound to a zone
@@ -164,6 +151,24 @@ function SonosMultiroomPlatform(log, config, api) {
         if (platform.config.isApiEnabled) {
             platform.sonosApi = new SonosApi(platform);
         }
+    });
+}
+
+/**
+ * Gets the play state of the group of the specified device.
+ * @param device The device.
+ * @returns Returns a promise with the play state of the group of the device.
+ */
+SonosMultiroomPlatform.prototype.getGroupPlayState = function (device) {
+    const platform = this;
+
+    // Gets the coordinator based on all groups
+    return device.sonos.getAllGroups().then(function(groups) {
+        const group = groups.find(function(g) { return g.ZoneGroupMember.some(function(m) { return m.ZoneName === device.zoneName; }); });
+        const coordinatorDevice = platform.devices.find(function(d) { return d.sonos.host === group.host; });
+        return coordinatorDevice.sonos.getCurrentState().then(function(playState) {
+            return playState;
+        });
     });
 }
 

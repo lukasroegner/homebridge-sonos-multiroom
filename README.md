@@ -19,8 +19,9 @@ The exposed accessories have the following logic when being switched ON:
 * If not, start playback (which means the last source, stream or radio of the respective Sonos zone is played back)
 
 The exposed accessories have the following logic when being switched OFF:
-* Stop playback
-* Leave any group you are in
+* Check if you are playing your TV stream (i.e. Playbar/Playbase)
+* If so, do nothing (as TV stream should not be "paused")
+* If not, stop playback and leave any group you are in
 
 Now, create HomeKit automations for your motion/occupancy sensors for each room
 * "If motion is detected, switch to ON"
@@ -111,7 +112,7 @@ Authorization: <YOUR-TOKEN>
 
 ### API - Get values of Sonos zone
 
-Use the `zones/<ZONE-NAME>` endpoint to retrieve values of a Sonos zone. The HTTP method has to be `GET`:
+Use the `zones/<ZONE-NAME>/<PROPERTY-NAME>` endpoint to retrieve a single value of a Sonos zone. The HTTP method has to be `GET`:
 ```
 http://<YOUR-HOST-IP-ADDRESS>:<apiPort>/zones/<ZONE-NAME>/<PROPERTY-NAME>
 ```
@@ -119,19 +120,42 @@ http://<YOUR-HOST-IP-ADDRESS>:<apiPort>/zones/<ZONE-NAME>/<PROPERTY-NAME>
 The response is a plain text response (easier to handle in HomeKit shortcuts), the following property names are supported:
 
 * **let-state** The LED state of the master device of the zone (possible values: `true` if ON, `false` if OFF)
+* **current-state** The playback state of the zone (possible values: `playing`, `paused`, `stopped`)
 * **volume** The current volume of the zone as integer value (range: `0-100`)
 
+Use the `zones/<ZONE-NAME>` endpoint to retrieve all values of a Sonos zone. The HTTP method has to be `GET`:
+```
+http://<YOUR-HOST-IP-ADDRESS>:<apiPort>/zones/<ZONE-NAME>
+```
+
+The response is a JSON object containing all values:
+```
+{
+    "led-state": true,
+    "current-state": "playing",
+    "volume": 16
+}
+```
 
 ### API - Set values of Sonos zone
 
 Use the `zones/<ZONE-NAME>` endpoint to set values of a Sonos zone. The HTTP method has to be `POST`:
 ```
-http://<YOUR-HOST-IP-ADDRESS>:<apiPort>/zones/<ZONE-NAME>/<PROPERTY-NAME>
+http://<YOUR-HOST-IP-ADDRESS>:<apiPort>/zones/<ZONE-NAME>
 ```
 
-The body of the request has to be plain text containing the new value. The following property names are supported:
+The body of the request has to be JSON containing the new values:
+```
+{
+    "<PROPERTY-NAME>": <VALUE>
+}
+```
+Multiple properties can be set with one request.
+
+The following property names are supported:
 
 * **let-state** The LED state of all devices of the zone (possible values: `true` to switch on ON, `false` to switch OFF)
+* **current-state** The playback state of the zone (possible values: `playing`, `paused`, `stopped`)
 * **volume** The current volume of the zone as integer value (range: `0-100`)
 
 ## Tips

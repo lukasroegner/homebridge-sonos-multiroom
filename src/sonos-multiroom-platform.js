@@ -124,7 +124,7 @@ function SonosMultiroomPlatform(log, config, api) {
                     // Gets the corresponding zone configuration
                     const config = platform.config.zones.find(function(z) { return z.name === zoneMasterDevice.zoneName; });
                     if (!config) {
-                        platform.log('No configuration provided for zone with name ' + info.zoneName + '.');
+                        platform.log('No configuration provided for zone with name ' + zoneMasterDevice.zoneName + '.');
                         continue;
                     }
 

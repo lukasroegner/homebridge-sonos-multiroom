@@ -135,6 +135,18 @@ SonosApi.prototype.handleGetPropertyByZone = function (endpoint, response) {
             promise = zoneMasterDevice.sonos.getVolume().then(function(volume) { content = volume.toString(); });
             break;
 
+        case 'current-track-uri':
+            promise = zoneMasterDevice.sonos.currentTrack().then(function(currentTrack) { 
+                if (!currentTrack || !currentTrack.uri) {
+                    content = 'null';
+                } else if (currentTrack.uri.endsWith(':spdif')) {
+                    content = 'TV';
+                } else {
+                    content = currentTrack.uri;
+                }
+            });
+            break;
+
         default:
             api.platform.log('Property not found.');
             response.statusCode = 400;
@@ -178,6 +190,15 @@ SonosApi.prototype.handleGetZone = function (endpoint, response) {
     promises.push(zoneMasterDevice.sonos.getLEDState().then(function(state) { responseObject['led-state'] = state === 'On'; }));
     promises.push(api.platform.getGroupPlayState(zoneMasterDevice).then(function(playState) { responseObject['current-state'] = playState; }));
     promises.push(zoneMasterDevice.sonos.getVolume().then(function(volume) { responseObject['volume'] = volume; }));
+    promises.push(zoneMasterDevice.sonos.currentTrack().then(function(currentTrack) { 
+        if (!currentTrack || !currentTrack.uri) {
+            responseObject['current-track-uri'] = null;
+        } else if (currentTrack.uri.endsWith(':spdif')) {
+            responseObject['current-track-uri'] = 'TV';
+        } else {
+            responseObject['current-track-uri'] = currentTrack.uri;
+        }
+    }));
 
     // Writes the response
     Promise.all(promises).then(function() {
@@ -234,9 +255,25 @@ SonosApi.prototype.handlePostZone = function (endpoint, body, response) {
                     promises.push(zoneMasterDevice.sonos.pause());
                 } else if (zonePropertyValue == 'stopped') {
                     promises.push(zoneMasterDevice.sonos.stop().catch(function() { return zoneMasterDevice.sonos.leaveGroup(); }));
+                } else if (zonePropertyValue == 'previous') {
+                    promises.push(zoneMasterDevice.sonos.previous());
+                } else if (zonePropertyValue == 'next') {
+                    promises.push(zoneMasterDevice.sonos.next());
                 }
                 break;
-        
+
+            case 'current-track-uri':
+                promises.push(zoneMasterDevice.sonos.play(zonePropertyValue));
+                break;
+
+            case 'adjust-volume':
+                promises.push(zoneMasterDevice.sonos.adjustVolume(zonePropertyValue));
+                break;
+
+            case 'mute':
+                promises.push(zoneMasterDevice.sonos.setMuted(zonePropertyValue));
+                break;
+
             case 'volume':
                 promises.push(zoneMasterDevice.sonos.setVolume(zonePropertyValue));
                 break;

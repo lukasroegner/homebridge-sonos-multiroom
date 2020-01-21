@@ -120,6 +120,7 @@ http://<YOUR-HOST-IP-ADDRESS>:<apiPort>/zones/<ZONE-NAME>/<PROPERTY-NAME>
 The response is a plain text response (easier to handle in HomeKit shortcuts), the following property names are supported:
 
 * **let-state** The LED state of the master device of the zone (possible values: `true` if ON, `false` if OFF)
+* **current-track-uri** The URI of the current track (possible values: `null`, `TV` or a URI)
 * **current-state** The playback state of the zone (possible values: `playing`, `paused`, `stopped`)
 * **volume** The current volume of the zone as integer value (range: `0-100`)
 
@@ -132,6 +133,7 @@ The response is a JSON object containing all values:
 ```
 {
     "led-state": true,
+    "current-track-uri": "http://..."
     "current-state": "playing",
     "volume": 16
 }
@@ -154,9 +156,12 @@ Multiple properties can be set with one request.
 
 The following property names are supported:
 
-* **let-state** The LED state of all devices of the zone (possible values: `true` to switch on ON, `false` to switch OFF)
-* **current-state** The playback state of the zone (possible values: `playing`, `paused`, `stopped`)
-* **volume** The current volume of the zone as integer value (range: `0-100`)
+* **let-state** The target LED state of all devices of the zone (possible values: `true` to switch on ON, `false` to switch OFF)
+* **current-track-uri** Play the provided URI.
+* **current-state** The target playback state of the zone (possible values: `playing`, `paused`, `stopped`, `next`, `previous`)
+* **adjust-volume** The relative change of the volume as integer value. May also be negative.
+* **mute** Mute/unmute the zone (possible values: `true`, `false`).
+* **volume** The target volume of the zone as integer value (range: `0-100`)
 
 ## Tips
 

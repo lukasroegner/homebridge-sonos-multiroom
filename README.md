@@ -123,6 +123,7 @@ The response is a plain text response (easier to handle in HomeKit shortcuts), t
 * **current-track-uri** The URI of the current track (possible values: `null`, `TV` or a URI)
 * **current-state** The playback state of the zone (possible values: `playing`, `paused`, `stopped`)
 * **volume** The current volume of the zone as integer value (range: `0-100`)
+* **mute** Mute state as boolean (possible values: `true` if zone is muted, otherwise `false`).
 
 Use the `zones/<ZONE-NAME>` endpoint to retrieve all values of a Sonos zone. The HTTP method has to be `GET`:
 ```
@@ -135,7 +136,8 @@ The response is a JSON object containing all values:
     "led-state": true,
     "current-track-uri": "http://..."
     "current-state": "playing",
-    "volume": 16
+    "volume": 16,
+    "mute": false
 }
 ```
 

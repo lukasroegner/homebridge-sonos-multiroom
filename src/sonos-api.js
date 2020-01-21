@@ -135,6 +135,10 @@ SonosApi.prototype.handleGetPropertyByZone = function (endpoint, response) {
             promise = zoneMasterDevice.sonos.getVolume().then(function(volume) { content = volume.toString(); });
             break;
 
+        case 'mute':
+            promise = zoneMasterDevice.sonos.getMuted().then(function(muted) { content = muted.toString(); });
+            break;
+
         case 'current-track-uri':
             promise = zoneMasterDevice.sonos.currentTrack().then(function(currentTrack) { 
                 if (!currentTrack || !currentTrack.uri) {
@@ -190,6 +194,7 @@ SonosApi.prototype.handleGetZone = function (endpoint, response) {
     promises.push(zoneMasterDevice.sonos.getLEDState().then(function(state) { responseObject['led-state'] = state === 'On'; }));
     promises.push(api.platform.getGroupPlayState(zoneMasterDevice).then(function(playState) { responseObject['current-state'] = playState; }));
     promises.push(zoneMasterDevice.sonos.getVolume().then(function(volume) { responseObject['volume'] = volume; }));
+    promises.push(zoneMasterDevice.sonos.getMuted().then(function(muted) { responseObject['mute'] = muted; }));
     promises.push(zoneMasterDevice.sonos.currentTrack().then(function(currentTrack) { 
         if (!currentTrack || !currentTrack.uri) {
             responseObject['current-track-uri'] = null;

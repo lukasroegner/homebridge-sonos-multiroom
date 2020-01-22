@@ -140,14 +140,16 @@ SonosApi.prototype.handleGetPropertyByZone = function (endpoint, response) {
             break;
 
         case 'current-track-uri':
-            promise = zoneMasterDevice.sonos.currentTrack().then(function(currentTrack) { 
-                if (!currentTrack || !currentTrack.uri) {
-                    content = 'null';
-                } else if (currentTrack.uri.endsWith(':spdif')) {
-                    content = 'TV';
-                } else {
-                    content = currentTrack.uri;
-                }
+            promise = api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
+                return coordinator.currentTrack().then(function(currentTrack) { 
+                    if (!currentTrack || !currentTrack.uri) {
+                        content = 'null';
+                    } else if (currentTrack.uri.endsWith(':spdif')) {
+                        content = 'TV';
+                    } else {
+                        content = currentTrack.uri;
+                    }
+                });
             });
             break;
 
@@ -195,14 +197,16 @@ SonosApi.prototype.handleGetZone = function (endpoint, response) {
     promises.push(api.platform.getGroupPlayState(zoneMasterDevice).then(function(playState) { responseObject['current-state'] = playState; }));
     promises.push(zoneMasterDevice.sonos.getVolume().then(function(volume) { responseObject['volume'] = volume; }));
     promises.push(zoneMasterDevice.sonos.getMuted().then(function(muted) { responseObject['mute'] = muted; }));
-    promises.push(zoneMasterDevice.sonos.currentTrack().then(function(currentTrack) { 
-        if (!currentTrack || !currentTrack.uri) {
-            responseObject['current-track-uri'] = null;
-        } else if (currentTrack.uri.endsWith(':spdif')) {
-            responseObject['current-track-uri'] = 'TV';
-        } else {
-            responseObject['current-track-uri'] = currentTrack.uri;
-        }
+    promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
+        return coordinator.currentTrack().then(function(currentTrack) { 
+            if (!currentTrack || !currentTrack.uri) {
+                responseObject['current-track-uri'] = 'null';
+            } else if (currentTrack.uri.endsWith(':spdif')) {
+                responseObject['current-track-uri'] = 'TV';
+            } else {
+                responseObject['current-track-uri'] = currentTrack.uri;
+            }
+        });
     }));
 
     // Writes the response
@@ -255,15 +259,23 @@ SonosApi.prototype.handlePostZone = function (endpoint, body, response) {
             
             case 'current-state':
                 if (zonePropertyValue == 'playing') {
-                    promises.push(zoneMasterDevice.sonos.play());
+                    promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
+                        return coordinator.sonos.play();
+                    }));
                 } else if (zonePropertyValue == 'paused') {
-                    promises.push(zoneMasterDevice.sonos.pause());
+                    promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
+                        return coordinator.sonos.pause();
+                    }));
                 } else if (zonePropertyValue == 'stopped') {
                     promises.push(zoneMasterDevice.sonos.stop().catch(function() { return zoneMasterDevice.sonos.leaveGroup(); }));
                 } else if (zonePropertyValue == 'previous') {
-                    promises.push(zoneMasterDevice.sonos.previous());
+                    promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
+                        return coordinator.sonos.previous();
+                    }));
                 } else if (zonePropertyValue == 'next') {
-                    promises.push(zoneMasterDevice.sonos.next());
+                    promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
+                        return coordinator.sonos.next();
+                    }));
                 }
                 break;
 

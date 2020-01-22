@@ -173,6 +173,22 @@ SonosMultiroomPlatform.prototype.getGroupPlayState = function (device) {
 }
 
 /**
+ * Gets the coordinator for the group of the specified device.
+ * @param device The device.
+ * @returns Returns a promise with the group coordinator of the device.
+ */
+SonosMultiroomPlatform.prototype.getGroupCoordinator = function (device) {
+    const platform = this;
+
+    // Gets the coordinator based on all groups
+    return device.sonos.getAllGroups().then(function(groups) {
+        const group = groups.find(function(g) { return g.ZoneGroupMember.some(function(m) { return m.ZoneName === device.zoneName; }); });
+        const coordinatorDevice = platform.devices.find(function(d) { return d.sonos.host === group.host; });
+        return coordinatorDevice.sonos;
+    });
+}
+
+/**
  * Configures a previously cached accessory.
  * @param accessory The cached accessory.
  */

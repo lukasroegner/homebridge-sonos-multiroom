@@ -89,6 +89,14 @@ function SonosApi(platform) {
                                 return;
                         }
                         break;
+
+                    case 'sonosFavorites':
+                        switch (request.method) {
+                            case 'GET':
+                                api.handleGetSonosFavorites(response);
+                                return;
+                        }
+                        break;
                 }
 
                 api.platform.log('No action matched.');
@@ -100,6 +108,43 @@ function SonosApi(platform) {
     } catch (e) {
         api.platform.log('API could not be started: ' + JSON.stringify(e));
     }
+}
+
+/**
+ * Handles requests to GET /sonos-favorites.
+ * @param response The response object.
+ */
+SonosApi.prototype.handleGetSonosFavorites = function (response) {
+    const api = this;
+
+    // Checks if the zone exists
+    const zoneMasterDevice = api.platform.devices.filter(function(d) { return d.isZoneMaster; })[0];
+
+    // Gets all properties
+    const promises = [];
+    const responseArray = [];
+    promises.push(promise = zoneMasterDevice.sonos.getFavorites().then(function(favorites) {
+        for (let i = 0; i < favorites.items.length; i++) {
+            responseArray.push({
+                title: favorites.items[i].title,
+                artist: favorites.items[i].artist,
+                album: favorites.items[i].album,
+                uri: favorites.items[i].uri
+            });
+        }
+    }));
+
+    // Writes the response
+    Promise.all(promises).then(function() {
+        response.setHeader('Content-Type', 'application/json');
+        response.write(JSON.stringify(responseArray));
+        response.statusCode = 200;
+        response.end();
+    }, function() {
+        api.platform.log('Error while retrieving values.');
+        response.statusCode = 400;
+        response.end();
+    });
 }
 
 /**
@@ -153,6 +198,54 @@ SonosApi.prototype.handleGetPropertyByZone = function (endpoint, response) {
             });
             break;
 
+        case 'current-track-title':
+            promise = api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
+                return coordinator.currentTrack().then(function(currentTrack) { 
+                    if (!currentTrack || !currentTrack.uri) {
+                        content = 'null';
+                    } else if (currentTrack.uri.endsWith(':spdif')) {
+                        content = 'TV';
+                    } else if (!currentTrack.title) {
+                        content = 'null';
+                    } else {
+                        content = currentTrack.title;
+                    }
+                });
+            });
+            break;
+
+            case 'current-track-artist':
+                promise = api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
+                    return coordinator.currentTrack().then(function(currentTrack) { 
+                        if (!currentTrack || !currentTrack.uri) {
+                            content = 'null';
+                        } else if (currentTrack.uri.endsWith(':spdif')) {
+                            content = 'TV';
+                        } else if (!currentTrack.artist) {
+                            content = 'null';
+                        } else {
+                            content = currentTrack.artist;
+                        }
+                    });
+                });
+                break;
+
+            case 'current-track-album':
+                promise = api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
+                    return coordinator.currentTrack().then(function(currentTrack) { 
+                        if (!currentTrack || !currentTrack.uri) {
+                            content = 'null';
+                        } else if (currentTrack.uri.endsWith(':spdif')) {
+                            content = 'TV';
+                        } else if (!currentTrack.album) {
+                            content = 'null';
+                        } else {
+                            content = currentTrack.album;
+                        }
+                    });
+                });
+                break;
+
         default:
             api.platform.log('Property not found.');
             response.statusCode = 400;
@@ -200,11 +293,16 @@ SonosApi.prototype.handleGetZone = function (endpoint, response) {
     promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
         return coordinator.currentTrack().then(function(currentTrack) { 
             if (!currentTrack || !currentTrack.uri) {
-                responseObject['current-track-uri'] = 'null';
+                responseObject['current-track'] = null;
             } else if (currentTrack.uri.endsWith(':spdif')) {
-                responseObject['current-track-uri'] = 'TV';
+                responseObject['current-track'] = 'TV';
             } else {
-                responseObject['current-track-uri'] = currentTrack.uri;
+                responseObject['current-track'] = {
+                    uri: currentTrack.uri,
+                    title: currentTrack.title,
+                    artist: currentTrack.artist,
+                    album: currentTrack.album
+                };
             }
         });
     }));
@@ -260,27 +358,29 @@ SonosApi.prototype.handlePostZone = function (endpoint, body, response) {
             case 'current-state':
                 if (zonePropertyValue == 'playing') {
                     promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
-                        return coordinator.sonos.play();
+                        return coordinator.play();
                     }));
                 } else if (zonePropertyValue == 'paused') {
                     promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
-                        return coordinator.sonos.pause();
+                        return coordinator.pause();
                     }));
                 } else if (zonePropertyValue == 'stopped') {
                     promises.push(zoneMasterDevice.sonos.stop().catch(function() { return zoneMasterDevice.sonos.leaveGroup(); }));
                 } else if (zonePropertyValue == 'previous') {
                     promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
-                        return coordinator.sonos.previous();
+                        return coordinator.previous();
                     }));
                 } else if (zonePropertyValue == 'next') {
                     promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
-                        return coordinator.sonos.next();
+                        return coordinator.next();
                     }));
                 }
                 break;
 
             case 'current-track-uri':
-                promises.push(zoneMasterDevice.sonos.play(zonePropertyValue));
+                promises.push(api.platform.getGroupCoordinator(zoneMasterDevice).then(function(coordinator) {
+                    return coordinator.setAVTransportURI(zonePropertyValue);
+                }));
                 break;
 
             case 'adjust-volume':
@@ -301,7 +401,7 @@ SonosApi.prototype.handlePostZone = function (endpoint, body, response) {
     Promise.all(promises).then(function() {
         response.statusCode = 200;
         response.end();
-    }, function() {
+    }, function(e) {console.log(e);
         api.platform.log('Error while setting value.');
         response.statusCode = 400;
         response.end();
@@ -334,6 +434,14 @@ SonosApi.prototype.getEndpoint = function (uri) {
         return {
             name: 'zone',
             zoneName: decodeURI(uriMatch[1])
+        };
+    }
+
+    // Checks if the URL matches the Sonos favorites endpoint
+    uriMatch = /\/sonos-favorites/g.exec(uriParts.pathname);
+    if (uriMatch && uriMatch.length === 1) {
+        return {
+            name: 'sonosFavorites'
         };
     }
 

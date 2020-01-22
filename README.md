@@ -110,7 +110,7 @@ The token has to be specified as value of the `Authorization` header on each req
 Authorization: <YOUR-TOKEN>
 ```
 
-### API - Get values of Sonos zone
+### API - Get single value of Sonos zone
 
 Use the `zones/<ZONE-NAME>/<PROPERTY-NAME>` endpoint to retrieve a single value of a Sonos zone. The HTTP method has to be `GET`:
 ```
@@ -121,9 +121,14 @@ The response is a plain text response (easier to handle in HomeKit shortcuts), t
 
 * **let-state** The LED state of the master device of the zone (possible values: `true` if ON, `false` if OFF)
 * **current-track-uri** The URI of the current track (possible values: `null`, `TV` or a URI)
+* **current-track-title** The title of the current track (possible values: `null`, `TV` or a string)
+* **current-track-artist** The artist of the current track (possible values: `null`, `TV` or a string)
+* **current-track-album** The album of the current track (possible values: `null`, `TV` or a string)
 * **current-state** The playback state of the zone (possible values: `playing`, `paused`, `stopped`)
 * **volume** The current volume of the zone as integer value (range: `0-100`)
 * **mute** Mute state as boolean (possible values: `true` if zone is muted, otherwise `false`).
+
+### API - Get all values of Sonos zone
 
 Use the `zones/<ZONE-NAME>` endpoint to retrieve all values of a Sonos zone. The HTTP method has to be `GET`:
 ```
@@ -134,12 +139,18 @@ The response is a JSON object containing all values:
 ```
 {
     "led-state": true,
-    "current-track-uri": "http://..."
+    "current-track": {
+        "title": "...",
+        "artist": "...",
+        "album": "..."
+    }
     "current-state": "playing",
     "volume": 16,
     "mute": false
 }
 ```
+
+When retrieving all values, the `current-track` property may also be `null` or `TV`.
 
 ### API - Set values of Sonos zone
 
@@ -158,12 +169,40 @@ Multiple properties can be set with one request.
 
 The following property names are supported:
 
-* **let-state** The target LED state of all devices of the zone (possible values: `true` to switch on ON, `false` to switch OFF)
-* **current-track-uri** Play the provided URI.
+* **led-state** The target LED state of all devices of the zone (possible values: `true` to switch on ON, `false` to switch OFF)
+* **current-track-uri** Play the provided URI (e.g. retrieved from the `sonos-favorites` endpoint).
 * **current-state** The target playback state of the zone (possible values: `playing`, `paused`, `stopped`, `next`, `previous`)
 * **adjust-volume** The relative change of the volume as integer value. May also be negative.
 * **mute** Mute/unmute the zone (possible values: `true`, `false`).
 * **volume** The target volume of the zone as integer value (range: `0-100`)
+
+### API - Get Sonos favorites
+
+Use the `sonos-favorite` endpoint to retrieve your Sonos favorites including the URI. The HTTP method has to be `GET`:
+```
+http://<YOUR-HOST-IP-ADDRESS>:<apiPort>/sonos-favorites
+```
+
+The response is a JSON array containing all values:
+```
+[
+    {
+        "uri": "..."
+        "title": "...",
+        "artist": "...",
+        "album": "..."
+    },
+    {
+        "uri": "..."
+        "title": "...",
+        "artist": "...",
+        "album": "..."
+    },
+    ...
+]
+```
+
+The fields for `artist` and `album` may be `null` if it is a playlist.
 
 ## Tips
 
@@ -173,3 +212,4 @@ The following property names are supported:
 * If your HomeKit motion sensors do not support an occupancy mode (i.e. they only show "motion detected" for some seconds), you can use delay switches (e.g. **homebridge-delay-switch**) with a timeout of some minutes to switch the Sonos accessories ON and OFF.
 * Use HomeKit shortcuts to set a default volume for each zone in the early morning.
 * Use HomeKit shortcuts to disable LEDs at night.
+* Add radio stations or playlists into the Sonos favorites. Use the `sonos-favorites` endpoint to retrieve the URI. Now, you can use the `POST` action with the parameter `current-track-uri` to play your radio station or playlist.

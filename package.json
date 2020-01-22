@@ -1,6 +1,6 @@
 {
   "name": "homebridge-sonos-multiroom",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Plugin for real Sonos multiroom experience in homebridge.",
   "license": "MIT",
   "keywords": [

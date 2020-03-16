@@ -72,6 +72,11 @@ function SonosMultiroomPlatform(log, config, api) {
         discovery.once('timeout', function () {
             platform.log('Discovery completed, ' + platform.devices.length + ' device(s) found.');
 
+            // Checks if any devices have been found
+            if (!platform.devices.length) {
+                return;
+            }
+
             // Gets the device information
             let promises = [];
             for (let i = 0; i < platform.devices.length; i++) {

@@ -1,0 +1,60 @@
+{
+  "pluginAlias": "SonosMultiroomPlatform",
+      "pluginType": "platform",
+      "headerDisplay": "This project is a homebridge plugin for the Sonos system. Instead of trying to support all features of the Sonos devices, it aims to provide a simple feature set while enabling a real multiroom experience.",
+      "footerDisplay": "For help please visit the [GitHub repository](https://github.com/lukasroegner/homebridge-sonos-multiroom).",
+      "schema":{
+        "type": "object",
+        "properties": {
+          "zones": {
+              "type": "array",
+              "title": "Zones",
+              "items": {
+                  "type": "object",
+                  "properties": {
+                      "name": {
+                          "type": "string",
+                          "title": "Name",
+                          "placeholder": "Living Room"
+                      },
+                      "isNightModeEnabled": {
+                          "type": "boolean",
+                          "title": "Enable Night Mode"
+                      },
+                      "isSpeechEnhancementEnabled": {
+                          "type": "boolean",
+                          "title": "Enable Speech Enhancement"
+                      },
+                      "priorities": {
+                          "type": "array",
+                          "title": "Priorities",
+                          "items": {
+                              "type": "string",
+                              "title": "Priorities",
+                              "placeholder": "Bedroom"
+                          }
+                      }
+                  }
+              }
+          },
+          "discoveryTimeout": {
+              "type": "integer",
+              "title": "Discovery Timeout",
+              "placeholder": "5000"
+          },
+          "isApiEnabled": {
+              "type": "boolean",
+              "title": "Enable API"
+          },
+          "apiPort": {
+              "type": "integer",
+              "title": "API Port",
+              "placeholder": "40809"
+          },
+          "apiToken": {
+              "type": "string",
+              "title": "API Token"
+          }
+      }
+  }
+}

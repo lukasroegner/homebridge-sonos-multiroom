@@ -119,7 +119,7 @@ http://<YOUR-HOST-IP-ADDRESS>:<apiPort>/zones/<ZONE-NAME>/<PROPERTY-NAME>
 
 The response is a plain text response (easier to handle in HomeKit shortcuts), the following property names are supported:
 
-* **let-state** The LED state of the master device of the zone (possible values: `true` if ON, `false` if OFF)
+* **led-state** The LED state of the master device of the zone (possible values: `true` if ON, `false` if OFF)
 * **current-track-uri** The URI of the current track (possible values: `null`, `TV` or a URI)
 * **current-track-title** The title of the current track (possible values: `null`, `TV` or a string)
 * **current-track-artist** The artist of the current track (possible values: `null`, `TV` or a string)

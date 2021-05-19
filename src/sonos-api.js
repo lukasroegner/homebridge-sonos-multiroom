@@ -65,7 +65,14 @@ function SonosApi(platform) {
                 // Validates the body
                 let body = null;
                 if (payload && payload.length > 0) {
-                    body = JSON.parse(Buffer.concat(payload).toString());
+                    try {
+                        body = JSON.parse(Buffer.concat(payload).toString());
+                    } catch {
+                        api.platform.log('Malformed JSON has been sent to the API.');
+                        response.statusCode = 400;
+                        response.end();
+                        return;
+                    }
                 }
                 
                 // Performs the action based on the endpoint and method

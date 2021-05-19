@@ -145,19 +145,28 @@ function SonosZone(platform, zoneMasterDevice, config) {
                         return;
                     }
 
-                    zone.platform.log(zone.name + ' - Set outlet state: ON - no priorities matches');
-
-                    // Tries to just play
-                    zone.masterDevice.sonos.play().then(function () {}, function () {
-                        zone.platform.log(zone.name + ' - Error while trying to play.');
-                    });
+                    // Tries to just play (if auto-play is enabled)
+                    if (!config.isAutoPlayDisabled) {
+                        zone.platform.log(zone.name + ' - Set outlet state: ON - no priorities matches');
+                        zone.masterDevice.sonos.play().then(function () { }, function () {
+                            zone.platform.log(zone.name + ' - Error while trying to play.');
+                        });
+                    } else {
+                        zone.platform.log(zone.name + ' - No auto-play');
+                        setTimeout(function() { zone.outletService.updateCharacteristic(Characteristic.On, false); }, 250);
+                    }
                 } else {
-                    zone.platform.log(zone.name + ' - Set outlet state: ON - no priorities');
 
-                    // Tries to just play
-                    zone.masterDevice.sonos.play().then(function () {}, function () {
-                        zone.platform.log(zone.name + ' - Error while trying to play.');
-                    });
+                    // Tries to just play (if auto-play is enabled)
+                    if (!config.isAutoPlayDisabled) {
+                        zone.platform.log(zone.name + ' - Set outlet state: ON - no priorities');
+                        zone.masterDevice.sonos.play().then(function () { }, function () {
+                            zone.platform.log(zone.name + ' - Error while trying to play.');
+                        });
+                    } else {
+                        zone.platform.log(zone.name + ' - No auto-play');
+                        setTimeout(function() { zone.outletService.updateCharacteristic(Characteristic.On, false); }, 250);
+                    }
                 }
             } else {
                 zone.platform.log(zone.name + ' - Set outlet state: ON - already ON');

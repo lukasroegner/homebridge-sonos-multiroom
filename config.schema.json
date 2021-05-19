@@ -33,6 +33,10 @@
                               "title": "Priorities",
                               "placeholder": "Bedroom"
                           }
+                      },
+                      "isAutoPlayDisabled": {
+                          "type": "boolean",
+                          "title": "Disable Auto-Play"
                       }
                   }
               }

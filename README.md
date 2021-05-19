@@ -16,7 +16,7 @@ The exposed accessories have the following logic when being switched ON:
 * Do nothing if the zone is already playing
 * Check if there is another Sonos zone that is already playing (if more than one Sonos zones are currently playing, a priority list that can be configured is used to determine which group to enter)
 * If found, enter the group of the Sonos zone that is already playing
-* If not, start playback (which means the last source, stream or radio of the respective Sonos zone is played back)
+* If not, start playback if auto-play is enabled (which means the last source, stream or radio of the respective Sonos zone is played back)
 
 The exposed accessories have the following logic when being switched OFF:
 * Check if you are playing your TV stream (i.e. Playbar/Playbase)
@@ -53,21 +53,24 @@ npm install homebridge-sonos-multiroom -g
                     "priorities": [
                         "Bedroom",
                         "Bathroom"
-                    ]
+                    ],
+                    "isAutoPlayDisabled": false
                 },
                 {
                     "name": "Bathroom",
                     "priorities": [
                         "Living Room",
                         "Bedroom"
-                    ]
+                    ],
+                    "isAutoPlayDisabled": false
                 },
                 {
                     "name": "Bedroom",
                     "priorities": [
                         "Living Room",
                         "Bathroom"
-                    ]
+                    ],
+                    "isAutoPlayDisabled": false
                 }
             ],
             "isApiEnabled": false,
@@ -89,6 +92,8 @@ npm install homebridge-sonos-multiroom -g
 **isSpeechEnhancementEnabled** (optional): If set to true, a switch is exposed for the speech enhancement. Defaults to `false`. (only for Playbar/Playbase)
 
 **priorities** (optional): If provided, this list of zone names defines the priority when searching for a music/TV stream to play when the accessories is switched to ON.
+
+**isAutoPlayDisabled** (optional): If set to `true`, the Sonos won't start playing if no other Sonos is currently playing. Defaults to `false`.
 
 **isApiEnabled** (optional): Enables an HTTP API for controlling Sonos zones. Defaults to `false`. See **API** for more information.
 

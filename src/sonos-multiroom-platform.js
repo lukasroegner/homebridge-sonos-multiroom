@@ -139,11 +139,21 @@ function SonosMultiroomPlatform(log, config, api) {
                 }
 
                 // Removes the accessories that are not bound to a zone
-                let unusedAccessories = platform.accessories.filter(function(a) { return !platform.zones.some(function(z) { return z.name === a.context.name; }); });
-                for (let i = 0; i < unusedAccessories.length; i++) {
-                    const unusedAccessory = unusedAccessories[i];
-                    platform.log('Removing accessory with name ' + unusedAccessory.context.name + ' and kind ' + unusedAccessory.context.kind + '.');
-                    platform.accessories.splice(platform.accessories.indexOf(unusedAccessory), 1);
+                let unusedAccessories = [];
+                let undiscoveredAccessories = platform.accessories.filter(function(a) { return !platform.zones.some(function(z) { return z.name === a.context.name; }); });
+                for (let i = 0; i < undiscoveredAccessories.length; i++) {
+                    const undiscoveredAccessory = undiscoveredAccessories[i];
+
+                    // In case the discovery hasn't found the Sonos device, its corresponding accessories are not removed if they are present in the configuration
+                    const config = platform.config.zones.find(function(z) { return z.name === undiscoveredAccessory.context.name; });
+                    if (!config) {
+                        platform.log('Removing accessory with name ' + undiscoveredAccessory.context.name + ' and kind ' + undiscoveredAccessory.context.kind + '.');
+                        unusedAccessories.push(undiscoveredAccessory);
+                    } else {
+                        platform.log('No device discovered for accessory with name ' + undiscoveredAccessory.context.name + ' and kind ' + undiscoveredAccessory.context.kind + '. Try increasing the discovery timeout.');
+                    }
+
+                    platform.accessories.splice(platform.accessories.indexOf(undiscoveredAccessory), 1);
                 }
                 platform.api.unregisterPlatformAccessories(platform.pluginName, platform.platformName, unusedAccessories);
                 platform.log('Initialization completed.');

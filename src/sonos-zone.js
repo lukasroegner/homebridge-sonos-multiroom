@@ -87,7 +87,7 @@ function SonosZone(platform, zoneMasterDevice, config) {
     // Updates the night mode switch
     let nightModeSwitchService = null;
     if (switchAccessory && config.isNightModeEnabled) {
-        nightModeSwitchService = switchAccessory.getServiceByUUIDAndSubType(Service.Switch, 'NightMode');
+        nightModeSwitchService = switchAccessory.getServiceById(Service.Switch, 'NightMode');
         if (!nightModeSwitchService) {
             nightModeSwitchService = switchAccessory.addService(Service.Switch, 'Night Mode', 'NightMode');
         }
@@ -99,7 +99,7 @@ function SonosZone(platform, zoneMasterDevice, config) {
     // Updates the speech enhancement switch
     let speechEnhancementSwitchService = null;
     if (switchAccessory && config.isSpeechEnhancementEnabled) {
-        speechEnhancementSwitchService = switchAccessory.getServiceByUUIDAndSubType(Service.Switch, 'SpeechEnhancement');
+        speechEnhancementSwitchService = switchAccessory.getServiceById(Service.Switch, 'SpeechEnhancement');
         if (!speechEnhancementSwitchService) {
             speechEnhancementSwitchService = switchAccessory.addService(Service.Switch, 'Speech Enhancement', 'SpeechEnhancement');
         }
